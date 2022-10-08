@@ -1,0 +1,19 @@
+RR:
+  '0':
+    RoleID: 843536450917367808
+    Reaction: male
+    IsAnimated: true
+    RemoveIfUnreacted: true
+    MessageID: 976519770428014632
+  '1':
+    RoleID: 843536626297995275
+    Reaction: female
+    IsAnimated: true
+    RemoveIfUnreacted: true
+    MessageID: 976519770428014632
+  '2':
+    RoleID: 843536586062561330
+    Reaction: they
+    IsAnimated: true
+    RemoveIfUnreacted: true
+    MessageID: 976519770428014632
