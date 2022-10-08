@@ -34,7 +34,14 @@ public class Cat implements EventListener {
     }
 
     public Cat() {
-        JDABuilder jdaBuilder = JDABuilder.create("ODc0MzYzODEzNjk1MjI1ODY2.GNf6eS.HX3m8P7epMuTluk1XIMVJmVOqPCGrZM0V3r1WI"
+
+        fileManager = new FileManager();
+        try {
+            fileManager.loadFiles();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        JDABuilder jdaBuilder = JDABuilder.create(fileManager.getConfig().getString("Token")
                 , GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGE_TYPING, GatewayIntent.GUILD_BANS, GatewayIntent.GUILD_MESSAGE_REACTIONS
                 , GatewayIntent.GUILD_EMOJIS_AND_STICKERS, GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MEMBERS, GatewayIntent.DIRECT_MESSAGES
                 , GatewayIntent.GUILD_PRESENCES, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_MESSAGES);
@@ -44,13 +51,6 @@ public class Cat implements EventListener {
         jda = jdaBuilder.build();
         jda.upsertCommand("ping", "Calculate ping of the bot").queue();
 
-        fileManager = new FileManager();
-
-        try {
-            fileManager.loadFiles();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override

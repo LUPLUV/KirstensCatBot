@@ -20,17 +20,7 @@ public class FileManager {
         if(!configFile.exists()){
             configFile.createNewFile();
             FileConfiguration cfg = YamlConfiguration.loadConfiguration(configFile);
-            List<Activity> activities = new ArrayList<>();
-            activities.add(Activity.playing("Brits SMP"));
-            cfg.set("Activities.0.Type", "STREAMING");
-            cfg.set("Activities.0.Name", "kirstenjbx");
-            cfg.set("Activities.0.Url", "https://www.twitch.tv/kirstenjbx");
-            cfg.set("Activities.1.Type", "PLAYING");
-            cfg.set("Activities.1.Name", "Brits SMP");
-            cfg.set("Activities.2.Type", "LISTENING");
-            cfg.set("Activities.2.Name", "Creeper Aaaaaw Man");
-            cfg.set("Activities.3.Type", "COMPETING");
-            cfg.set("Activities.3.Name", "MC Championship 2029");
+            cfg.set("Token", "yourTokenHere");
             cfg.save(configFile);
         }
         if(!rrFile.exists()){
