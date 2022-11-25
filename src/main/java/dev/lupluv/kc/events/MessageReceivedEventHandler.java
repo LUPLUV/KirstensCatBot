@@ -9,9 +9,17 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.components.ActionRow;
+import net.dv8tion.jda.api.interactions.components.Modal;
+import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.text.TextInput;
+import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
+import net.dv8tion.jda.api.utils.FileUpload;
+import org.w3c.dom.Text;
 
 import java.awt.*;
 import java.io.IOException;
@@ -519,7 +527,42 @@ public class MessageReceivedEventHandler extends ListenerAdapter {
                                     channel.sendMessage("No Text Channel found!").queue();
                                 }
                             }
+                        }else if(args.length == 2){
+                            if(args[1].equalsIgnoreCase("transcripts")){
+                                Util.getInstance().sendTranscriptList(e);
+                            }
                         }
+                    }else if(command.equalsIgnoreCase(".sendrep")){
+                        if(args.length == 1){
+                            TextChannel tc = e.getGuild().getTextChannelById("843439397604950057");
+                            EmbedBuilder eb = new EmbedBuilder();
+                            eb.setTitle("Wanna create a report?");
+                            eb.setDescription("Just click the button below.");
+                            tc.sendMessageEmbeds(eb.build()).addActionRow(
+                                    Button.success("createReport", "Create report")
+                            ).queue((cM) ->{
+                                lastRepMsg = cM;
+                            });
+                        }
+                    }
+                }else{
+                    if(e.getChannel().getId().equalsIgnoreCase("843439397604950057")){
+                        if(!message.getEmbeds().isEmpty()){
+                            MessageEmbed eb = message.getEmbeds().get(0);
+                            if(eb.getTitle().contains("Wanna create a report"))return;
+                        }
+                        if(lastRepMsg != null){
+                            lastRepMsg.delete().queue();
+                        }
+                        TextChannel tc = e.getGuild().getTextChannelById("843439397604950057");
+                        EmbedBuilder eb = new EmbedBuilder();
+                        eb.setTitle("Wanna create a report?");
+                        eb.setDescription("Just click the button below.");
+                        tc.sendMessageEmbeds(eb.build()).addActionRow(
+                                Button.success("createReport", "Create report")
+                        ).queue((createdMessage) ->{
+                            lastRepMsg = createdMessage;
+                        });
                     }
                 }
             }
@@ -527,6 +570,8 @@ public class MessageReceivedEventHandler extends ListenerAdapter {
             System.out.println("not from guild");
         }
     }
+
+    public static Message lastRepMsg;
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
@@ -542,13 +587,95 @@ public class MessageReceivedEventHandler extends ListenerAdapter {
         }else if(event.getComponentId().equals("ticketOpen")){
             Util.getInstance().openTicket(event);
         }else if(event.getComponentId().equals("ticketDelete")){
-            Util.getInstance().deleteTicket(event);
-        }else if(event.getComponentId().equals("ticketTranscript")){
-            try {
-                Util.getInstance().loadTranscript(event);
-            } catch (IOException e) {
-                e.printStackTrace();
+            if(Util.getInstance().isTicketSupportTeam(event.getMember())) {
+                Util.getInstance().deleteTicket(event);
+            }else{
+                Util.getInstance().sendTicketNoPermsButton(event);
             }
+        }else if(event.getComponentId().equals("ticketTranscript")){
+            if(Util.getInstance().isTicketSupportTeam(event.getMember())) {
+                try {
+                    Util.getInstance().loadTranscript(event);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }else{
+                Util.getInstance().sendTicketNoPermsButton(event);
+            }
+        }else if(event.getComponentId().equals("createReport")){
+            TextInput name = TextInput.create("username", "Name of user", TextInputStyle.SHORT)
+                    .setPlaceholder("Enter the name of the user you report")
+                    .setMinLength(1)
+                    .setMaxLength(20) // or setRequiredRange(10, 100)
+                    .build();
+
+            TextInput reason = TextInput.create("reason", "Reason", TextInputStyle.SHORT)
+                    .setPlaceholder("Why are you reporting this user?")
+                    .setMinLength(5)
+                    .setMaxLength(20)
+                    .build();
+
+            TextInput punishment = TextInput.create("punishment", "Type of punishment", TextInputStyle.SHORT)
+                    .setPlaceholder("What punishment did you decide?")
+                    .setMinLength(4)
+                    .setMaxLength(20)
+                    .build();
+
+            TextInput proof = TextInput.create("proof", "Proof", TextInputStyle.SHORT)
+                    .setPlaceholder("https://imgur.com/897ca789-28asd.png")
+                    .setM
+
+            Modal modal = Modal.create("createReportModal", "Create report")
+                    .addActionRows(ActionRow.of(name), ActionRow.of(reason), ActionRow.of(punishment))
+                    .build();
+
+            event.replyModal(modal).queue();
+        }else if(event.getComponentId().equals("approveReport")){
+            if(event.getMember().hasPermission(Permission.MANAGE_SERVER)){
+                event.getMessage().getActionRows().clear();
+                EmbedBuilder eb = new EmbedBuilder();
+                MessageEmbed me = event.getMessage().getEmbeds().get(0);
+                eb.setTitle(me.getTitle());
+                eb.setDescription(me.getDescription());
+                me.getFields().forEach(eb::addField);
+                eb.setFooter("Approved :)");
+                eb.setColor(Color.GREEN);
+                event.getMessage().editMessageEmbeds(eb.build()).queue();
+            }
+        }else if(event.getComponentId().equals("denyReport")){
+            if(event.getMember().hasPermission(Permission.MANAGE_SERVER)){
+                event.getMessage().getActionRows().clear();
+                EmbedBuilder eb = new EmbedBuilder();
+                MessageEmbed me = event.getMessage().getEmbeds().get(0);
+                eb.setTitle(me.getTitle());
+                eb.setDescription(me.getDescription());
+                me.getFields().forEach(eb::addField);
+                eb.setFooter("Denied :(");
+                eb.setColor(Color.RED);
+                event.getMessage().editMessageEmbeds(eb.build()).queue();
+            }
+        }
+    }
+    @Override
+    public void onModalInteraction(ModalInteractionEvent event) {
+        if (event.getModalId().equals("createReportModal")) {
+            String username = event.getValue("username").getAsString();
+            String reason = event.getValue("reason").getAsString();
+            String punishment = event.getValue("punishment").getAsString();
+
+            EmbedBuilder eb = new EmbedBuilder();
+            eb.setTitle("Report by " + event.getMember().getEffectiveName());
+            eb.setDescription("Reported at " + Util.getInstance().formatTranscriptMessageTime(event.getTimeCreated()));
+            eb.setColor(Color.YELLOW);
+            eb.addField("User", username, true);
+            eb.addField("Reason", reason, true);
+            eb.addField("Punishment", punishment, true);
+            eb.setFooter("Not approved yet");
+
+            event.replyEmbeds(eb.build()).addActionRow(
+                    Button.success("approveReport", "Approve"),
+                    Button.danger("denyReport", "Deny")
+            ).queue();
         }
     }
 

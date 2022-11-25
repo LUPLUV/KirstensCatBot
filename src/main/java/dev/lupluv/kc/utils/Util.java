@@ -7,7 +7,9 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
@@ -196,7 +198,7 @@ public class Util {
         eb.setTitle("Help - Ticket Tool");
         eb.addField(".tickets send <channel>", "Sends the ticket creation message in the specified channel.", true);
         eb.addField(".tickets category <category>", "Sets the category, ticket will be displayed in.", true);
-        eb.addField(".tickets test", "Deletes a Reaction Role.", true);
+        eb.addField(".tickets transcripts", "Shows saved transcripts.", true);
         eb.setFooter("Use '.help' to see all Categories", "https://cdn-icons-png.flaticon.com/512/5184/5184592.png");
         return eb.build();
     }
@@ -248,31 +250,23 @@ public class Util {
                         ac = "" + i;
                     }
                     if (guild.getTextChannelsByName("ticket-" + ac, true).isEmpty()) {
-                        ticketId = ac;
-                        break;
+                        if (guild.getTextChannelsByName("closed-" + ac, true).isEmpty()) {
+                            ticketId = ac;
+                            break;
+                        }
                     }
                 }
                 guild.createTextChannel("ticket-" + ticketId).queue((createdChannel) -> {
                     for(Role role : guild.getRoles()){
                         if(role.hasPermission(Permission.KICK_MEMBERS)) allowedRoles.add(role);
                     }
-                    for(Member member : guild.getMembers()){
-                        if(member.getPermissions(createdChannel).contains(Permission.VIEW_CHANNEL)){
-                            if(!hasAllowedRoles(member)){
-                                if(!member.hasPermission(Permission.KICK_MEMBERS)){
-                                    if(!member.getId().equalsIgnoreCase(user.getId())) {
-                                        member.getPermissions(createdChannel).remove(Permission.VIEW_CHANNEL);
-                                    }
-                                }
-                            }
-                        }else if(hasAllowedRoles(member)){
-                            member.getPermissions(createdChannel).add(Permission.VIEW_CHANNEL);
-                        }else if(member.hasPermission(Permission.KICK_MEMBERS)){
-                            member.getPermissions(createdChannel).add(Permission.VIEW_CHANNEL);
-                        }else if(member.getId().equalsIgnoreCase(user.getId())) {
-                            member.getPermissions(createdChannel).add(Permission.VIEW_CHANNEL);
+                    createdChannel.upsertPermissionOverride(guild.getPublicRole()).deny(Permission.VIEW_CHANNEL).queue();
+                    for(Role roles : guild.getRoles()){
+                        if(roles.hasPermission(Permission.KICK_MEMBERS)){
+                            createdChannel.upsertPermissionOverride(roles).grant(Permission.VIEW_CHANNEL).queue();
                         }
                     }
+                    createdChannel.upsertPermissionOverride(Objects.requireNonNull(guild.getMember(user))).grant(Permission.VIEW_CHANNEL).queue();
                     sendTicketChannelCreatedMessage(user, createdChannel);
                     hook.editOriginal("Ticket created " + createdChannel.getAsMention()).queue();
                     openedTickets.put(user, createdChannel);
@@ -389,7 +383,8 @@ public class Util {
             }
             fr.close();
             TextChannel tc = event.getChannel().asTextChannel();
-            Collection<Message> messages = tc.getHistory().retrievePast(100).complete();
+            List<Message> messages = tc.getHistory().retrievePast(100).complete();
+            Collections.reverse(messages);
             fw.append("<div class='ticket-header'>Ticket by " + creator.getAsTag() + "</div>");
             for(Message message : messages){
                 if(!message.getAuthor().isBot()) {
@@ -413,6 +408,31 @@ public class Util {
         return time.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " "
                 + time.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " "
                 + time.getDayOfMonth() + " " + time.getYear() + " " + time.getHour() + ":" + time.getMinute() + ":" + time.getSecond();
+    }
+
+    public void sendTranscriptList(MessageReceivedEvent event){
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setTitle("All Transcripts");
+        eb.setColor(Color.YELLOW);
+        eb.setDescription("Here you get all saved transcripts from the past.");
+        File folder = new File("/var/www/lupluv.dev/transcripts/data");
+        for(String file : folder.list()){
+            eb.addField("Transcript " + file.replace(".html", ""), "https://lupluv.dev/transcripts/data/" + file, false);
+        }
+        event.getChannel().sendMessageEmbeds(eb.build()).addActionRow(
+                Button.link("https://lupluv.dev/transcripts/data", "Open in web")
+        ).queue();
+    }
+
+    public boolean isTicketSupportTeam(Member member){
+        return member.hasPermission(Permission.KICK_MEMBERS);
+    }
+
+    public void sendTicketNoPermsButton(ButtonInteractionEvent event){
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setColor(Color.RED);
+        eb.setDescription("You are not allowed to do this " + event.getMember().getAsMention());
+        event.replyEmbeds(eb.build()).queue();
     }
 
 }
